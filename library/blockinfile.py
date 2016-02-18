@@ -166,6 +166,15 @@ def check_file_attrs(module, changed, message):
     return message, changed
 
 
+def startswith_lines(marker, lines, index):
+    for i in range(0, len(marker)):
+        if lines[i] == marker[0 + index]:
+            pass
+        else:
+            return False
+    return True
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -221,56 +230,82 @@ def main():
     else:
         insertre = None
 
-    marker0 = re.sub(r'{mark}', 'BEGIN', marker)
-    marker1 = re.sub(r'{mark}', 'END', marker)
+    marker0 = re.sub(r'{mark}', 'BEGIN', marker) + "\n"
+    marker1 = re.sub(r'{mark}', 'END', marker) + "\n"
+    
     if present and block:
         # Escape seqeuences like '\n' need to be handled in Ansible 1.x
         if ANSIBLE_VERSION.startswith('1.'):
             block = re.sub('', block, '')
-        blocklines = [marker0] + block.splitlines() + [marker1]
     else:
         blocklines = []
 
-    n0 = n1 = None
-    for i, line in enumerate(lines):
-        if line.startswith(marker0):
-            n0 = i
-        if line.startswith(marker1):
-            n1 = i
-
-    if None in (n0, n1):
-        n0 = None
-        if insertre is not None:
-            for i, line in enumerate(lines):
-                if insertre.search(line):
-                    n0 = i
-            if n0 is None:
-                n0 = len(lines)
-            elif insertafter is not None:
-                n0 += 1
-        elif insertbefore is not None:
-            n0 = 0           # insertbefore=BOF
-        else:
-            n0 = len(lines)  # insertafter=EOF
-    elif n0 < n1:
-        lines[n0:n1+1] = []
+    exact_re = re.compile(
+        (re.escape(marker0) + re.escape(block) + re.escape(marker1)),
+        (re.MULTILINE | re.DOTALL)
+    )
+    
+    # this regex will match if the markers are present but the contents is
+    # different
+    different_re = re.compile(
+        "%s.*%s" % (re.escape(marker0), re.escape(marker1)),
+        (re.MULTILINE | re.DOTALL)
+    )
+    
+    result = original
+    
+    # there are four cases:
+    # 
+    # 1.  removal (block == ''). this is it's own case because the markers are
+    #     removed along with the content.
+    # 
+    if block == '':
+        result = re.sub(different_re, '', original)
+    
+    # 2.  no-op
+    elif exact_re.search(original):
+        pass
+    elif different_re.search(original):
+        raise "WHERE?"
+        result = re.sub(different_re, original, block)
+    
+    # 4.  insert
     else:
-        lines[n1:n0+1] = []
-        n0 = n1
-
-    lines[n0:n0] = blocklines
-
-    if lines:
-        result = '\n'.join(lines)+'\n'
-    else:
-        result = ''
+        result += (marker0 + block + marker1)
+        # if insertafter:
+        #     if insertafter == 'EOF':
+        #         result = original + marker0 + block + marker1
+        #     else:
+        #         result = re.sub(orginal, re.compile(insertafter), (re.escape(insertafter) + block))
+        # elif insertbefore:
+        #     if insertbefore == 'BOF':
+        #         result = marker0 + block + marker1 + original
+        #     else:
+        #         result = re.sub(original, re.compile(insertafter), block + re.escape())
+        #     
+        # elif insertafter:
+        #     pass
+        # if insertre is not None:
+        #     
+        #     for i, line in enumerate(lines):
+        #         if insertre.search(line):
+        #             n0 = i
+        #     if n0 is None:
+        #         n0 = len(lines)
+        #     elif insertafter is not None:
+        #         n0 += 1
+        # elif insertbefore is not None:
+        #     n0 = 0           # insertbefore=BOF
+        # else:
+        #     n0 = len(lines)  # insertafter=EOF
+        
     if original == result:
         msg = ''
         changed = False
     elif original is None:
         msg = 'File created'
         changed = True
-    elif not blocklines:
+    elif not block:
         msg = 'Block removed'
         changed = True
     else:
