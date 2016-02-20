@@ -21,6 +21,7 @@
 import re
 import os
 import tempfile
+import pprint
 
 DOCUMENTATION = """
 ---
@@ -187,6 +188,8 @@ def main():
             create=dict(default=False, type='bool'),
             backup=dict(default=False, type='bool'),
             validate=dict(default=None, type='str'),
+            beginmarker=dict(default=None, type='str'),
+            endmarker=dict(default=None, type='str'),
         ),
         mutually_exclusive=[['insertbefore', 'insertafter']],
         add_file_common_args=True,
@@ -229,16 +232,30 @@ def main():
         insertre = re.compile(insertbefore)
     else:
         insertre = None
-
-    marker0 = re.sub(r'{mark}', 'BEGIN', marker) + "\n"
-    marker1 = re.sub(r'{mark}', 'END', marker) + "\n"
+    
+    if params['beginmarker']:
+        marker0 = params['beginmarker'] + "\n"
+    else:
+        marker0 = re.sub(r'{mark}', 'BEGIN', marker) + "\n"
+    
+    if params['endmarker']:
+        marker1 = params['endmarker'] + "\n"
+    else:
+        marker1 = re.sub(r'{mark}', 'END', marker) + "\n"
     
     if present and block:
         # Escape seqeuences like '\n' need to be handled in Ansible 1.x
         if ANSIBLE_VERSION.startswith('1.'):
             block = re.sub('', block, '')
+            marker0 = re.sub('', marker0, '')
+            marker1 = re.sub('', marker1, '')
     else:
-        blocklines = []
+        # blocklines = []
+        pass
+
+    replacement = marker0 + block + marker1
+    
+    # module.fail_json(msg=pprint.pformat(replacement))
 
     exact_re = re.compile(
         (re.escape(marker0) + re.escape(block) + re.escape(marker1)),
@@ -262,16 +279,17 @@ def main():
     if block == '':
         result = re.sub(different_re, '', original)
     
-    # 2.  no-op
+    # 2.  no-op - the exact text is already present
     elif exact_re.search(original):
         pass
+        
+    # 3. replace - the markers are present but the content is different
     elif different_re.search(original):
-        raise "WHERE?"
-        result = re.sub(different_re, original, block)
+        result = re.sub(different_re, replacement, original)
     
     # 4.  insert
     else:
-        result += (marker0 + block + marker1)
+        result += replacement
         # if insertafter:
         #     if insertafter == 'EOF':
         #         result = original + marker0 + block + marker1

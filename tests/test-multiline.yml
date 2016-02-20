@@ -1,6 +1,20 @@
 - hosts: localhost
+  gather_facts: false
   vars:
-    - testing_dir: "{{playbook_dir}}/testing"
+    testing_dir: "{{playbook_dir}}/testing"
+    beginmarker: |
+      
+      {{ '#' * 78 }}
+      # BEGIN MULTILINE SECTION
+      #
+      
+    endmarker: |
+      
+      #
+      # END MULTILINE SECTION
+      {{ '#' * 78 }}
+      
+    blah: null
   roles:
     - yaegashi.blockinfile
   tasks:
@@ -8,31 +22,21 @@
       blockinfile: |
         dest={{testing_dir}}/insert.txt backup=yes
         content="aaa bbb ccc\nAAA BBB CCC"
-        marker="
-        
-        {{ '#' * 78 }}
-        # {mark} MULTILINE SECTION
-        {{ '#' * 78 }}
-        "
-        
+        beginmarker="{{ beginmarker }}"
+        endmarker="{{ endmarker }}"
     - name: remove block
       blockinfile: |
         dest={{testing_dir}}/remove.txt backup=yes
         content=""
-        marker="
-        
-        {{ '#' * 78 }}
-        # {mark} MULTILINE SECTION
-        {{ '#' * 78 }}
-        "
-    # - name: update block
-    #   blockinfile: |
-    #     dest={{testing_dir}}/update.txt backup=yes
-    #     content="aaa bbb ccc\nAAA BBB CCC"
-    # - name: remove block
-    #   blockinfile: |
-    #     dest={{testing_dir}}/remove.txt backup=yes
-    #     content=""
+        beginmarker="{{ beginmarker }}"
+        endmarker="{{ endmarker }}"
+    - name: update block
+      blockinfile: |
+        dest={{testing_dir}}/update.txt backup=yes
+        content="aaa bbb ccc\nAAA BBB CCC"
+        beginmarker="{{ beginmarker }}"
+        endmarker="{{ endmarker }}"
+
     # - name: alternative marker
     #   blockinfile: |
     #     dest={{testing_dir}}/marker.txt backup=yes

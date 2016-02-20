@@ -25,6 +25,12 @@ run() {
                         exit 1
                 fi
         fi
+        # exit if the first run doesn't pass
+        echo "$p: Checking results"
+        if ! diff -x "*~" -ruN $expected_dir $testing_dir; then
+                echo "$p: Unexpected changes detected"
+                exit 1
+        fi
         echo "$p: Running ansible-playbook again"
         ansible-playbook -v -i hosts -e testing_dir=$testing_dir $p | tee $idlog
         if ! grep -q 'changed=0.*failed=0' $idlog; then
