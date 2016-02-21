@@ -9,7 +9,6 @@
       #
       
     endmarker: |
-      
       #
       # END MULTILINE SECTION
       {{ '#' * 78 }}

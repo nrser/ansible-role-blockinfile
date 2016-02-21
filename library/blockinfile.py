@@ -21,6 +21,9 @@
 import re
 import os
 import tempfile
+
+from itertools import chain
+
 import pprint
 
 DOCUMENTATION = """
@@ -209,7 +212,7 @@ def main():
         if not module.boolean(params['create']):
             module.fail_json(rc=257,
                              msg='Destination %s does not exist !' % dest)
-        original = None
+        original = ''
         lines = []
     else:
         f = open(dest, 'rb')
@@ -234,14 +237,14 @@ def main():
         insertre = None
     
     if params['beginmarker']:
-        marker0 = params['beginmarker'] + "\n"
+        marker0 = params['beginmarker']
     else:
-        marker0 = re.sub(r'{mark}', 'BEGIN', marker) + "\n"
+        marker0 = re.sub(r'{mark}', 'BEGIN', marker)
     
     if params['endmarker']:
-        marker1 = params['endmarker'] + "\n"
+        marker1 = params['endmarker']
     else:
-        marker1 = re.sub(r'{mark}', 'END', marker) + "\n"
+        marker1 = re.sub(r'{mark}', 'END', marker)
     
     if present and block:
         # Escape seqeuences like '\n' need to be handled in Ansible 1.x
@@ -252,7 +255,17 @@ def main():
     else:
         # blocklines = []
         pass
-
+    
+    # make sure each chunk ends with a newline if it doens't already
+    if block != '' and not block.endswith("\n"):
+        block = block + "\n"
+        
+    if not marker0.endswith("\n"):
+        marker0 = marker0 + "\n"
+        
+    if not marker1.endswith("\n"):
+        marker1 = marker1 + "\n"
+    
     replacement = marker0 + block + marker1
     
     # module.fail_json(msg=pprint.pformat(replacement))
@@ -273,11 +286,11 @@ def main():
     
     # there are four cases:
     # 
-    # 1.  removal (block == ''). this is it's own case because the markers are
+    # 1.  removal - this is it's own case because the markers are
     #     removed along with the content.
     # 
-    if block == '':
-        result = re.sub(different_re, '', original)
+    if not present or block == '':
+        result = different_re.sub('', original)
     
     # 2.  no-op - the exact text is already present
     elif exact_re.search(original):
@@ -285,42 +298,38 @@ def main():
         
     # 3. replace - the markers are present but the content is different
     elif different_re.search(original):
-        result = re.sub(different_re, replacement, original)
+        result = different_re.sub(replacement, original)
     
-    # 4.  insert
+    # 4.  insert - the markers 
     else:
-        result += replacement
-        # if insertafter:
-        #     if insertafter == 'EOF':
-        #         result = original + marker0 + block + marker1
-        #     else:
-        #         result = re.sub(orginal, re.compile(insertafter), (re.escape(insertafter) + block))
-        # elif insertbefore:
-        #     if insertbefore == 'BOF':
-        #         result = marker0 + block + marker1 + original
-        #     else:
-        #         result = re.sub(original, re.compile(insertafter), block + re.escape())
-        #     
-        # elif insertafter:
-        #     pass
-        # if insertre is not None:
-        #     
-        #     for i, line in enumerate(lines):
-        #         if insertre.search(line):
-        #             n0 = i
-        #     if n0 is None:
-        #         n0 = len(lines)
-        #     elif insertafter is not None:
-        #         n0 += 1
-        # elif insertbefore is not None:
-        #     n0 = 0           # insertbefore=BOF
-        # else:
-        #     n0 = len(lines)  # insertafter=EOF
+        lines = original.splitlines()
+        blocklines = replacement.splitlines()
+        
+        n0 = None
+        if insertre is not None:
+            for i, line in enumerate(lines):
+                if insertre.search(line):
+                    n0 = i
+            if n0 is None:
+                n0 = len(lines)
+            elif insertafter is not None:
+                n0 += 1
+        elif insertbefore is not None:
+            n0 = 0           # insertbefore=BOF
+        else:
+            n0 = len(lines)  # insertafter=EOF
+        
+        lines[n0:n0] = blocklines
+
+        if lines:
+            result = '\n'.join(lines)+'\n'
+        else:
+            result = ''
         
     if original == result:
         msg = ''
         changed = False
-    elif original is None:
+    elif original == '':
         msg = 'File created'
         changed = True
     elif not block:
