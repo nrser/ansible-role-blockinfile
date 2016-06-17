@@ -248,7 +248,7 @@ def main():
     
     if present and block:
         # Escape seqeuences like '\n' need to be handled in Ansible 1.x
-        if ANSIBLE_VERSION.startswith('1.'):
+        if module.ansible_version.startswith('1.'):
             block = re.sub('', block, '')
             marker0 = re.sub('', marker0, '')
             marker1 = re.sub('', marker1, '')
