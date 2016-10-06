@@ -194,7 +194,10 @@ def main():
             beginmarker=dict(default=None, type='str'),
             endmarker=dict(default=None, type='str'),
         ),
-        mutually_exclusive=[['insertbefore', 'insertafter']],
+        mutually_exclusive=[
+            ['insertbefore', 'insertafter'],
+            ['block', 'src'],
+        ],
         add_file_common_args=True,
         supports_check_mode=True
     )
@@ -222,7 +225,15 @@ def main():
 
     insertbefore = params['insertbefore']
     insertafter = params['insertafter']
-    block = params['block']
+    
+    # accept `src` as a file for the block contents
+    if params['src']:
+        srcFile = open(params['src'], 'rb')
+        block = srcFile.read()
+        srcFile.close()
+    else:
+        block = params['block']
+    
     marker = params['marker']
     present = params['state'] == 'present'
 
@@ -253,7 +264,6 @@ def main():
             marker0 = re.sub('', marker0, '')
             marker1 = re.sub('', marker1, '')
     else:
-        # blocklines = []
         pass
     
     # make sure each chunk ends with a newline if it doens't already
@@ -271,7 +281,7 @@ def main():
     # module.fail_json(msg=pprint.pformat(replacement))
 
     exact_re = re.compile(
-        (re.escape(marker0) + re.escape(block) + re.escape(marker1)),
+        re.escape(marker0 + block + marker1),
         (re.MULTILINE | re.DOTALL)
     )
     
@@ -303,10 +313,10 @@ def main():
     # 4.  insert - the markers 
     else:
         lines = original.splitlines()
-        blocklines = replacement.splitlines()
         
         n0 = None
         if insertre is not None:
+            match = insertre.search(original)    
             for i, line in enumerate(lines):
                 if insertre.search(line):
                     n0 = i
@@ -319,13 +329,18 @@ def main():
         else:
             n0 = len(lines)  # insertafter=EOF
         
-        lines[n0:n0] = blocklines
-
-        if lines:
-            result = '\n'.join(lines)+'\n'
-        else:
-            result = ''
+        before = "\n".join(lines[:n0])
         
+        if before != '':
+            before = before + "\n"
+        
+        after = "\n".join(lines[n0:])
+        
+        if after != '' and original.endswith("\n"):
+            after = after + "\n"
+        
+        result = "".join([before, replacement, after])
+                
     if original == result:
         msg = ''
         changed = False
