@@ -168,16 +168,7 @@ def check_file_attrs(module, changed, message):
         message += "ownership, perms or SE linux context changed"
 
     return message, changed
-
-
-def startswith_lines(marker, lines, index):
-    for i in range(0, len(marker)):
-        if lines[i] == marker[0 + index]:
-            pass
-        else:
-            return False
-    return True
-
+    
 
 def main():
     module = AnsibleModule(
@@ -216,12 +207,10 @@ def main():
             module.fail_json(rc=257,
                              msg='Destination %s does not exist !' % dest)
         original = ''
-        lines = []
     else:
         f = open(dest, 'rb')
         original = f.read()
         f.close()
-        lines = original.splitlines()
 
     insertbefore = params['insertbefore']
     insertafter = params['insertafter']
