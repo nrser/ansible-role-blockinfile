@@ -4,7 +4,7 @@ galaxy_info:
   description: Contains blockinfile module
                to insert/update/remove a text block surrounded by marker lines
   license: GPLv3+
-  min_ansible_version: 1.2
+  min_ansible_version: 2.4
   categories:
   - system
 dependencies: []

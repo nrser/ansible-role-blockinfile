@@ -25,12 +25,7 @@ import tempfile
 from itertools import chain
 
 import pprint
-
-try:
-    from __main__ import display
-except ImportError:
-    from ansible.utils.display import Display
-    display = Display()
+        
 
 DOCUMENTATION = """
 ---
@@ -295,31 +290,31 @@ def main():
     #     removed along with the content.
     # 
     if not present or block == '':
-        display.debug("removing block")
+        module.debug("removing block")
         
         result = different_re.sub('', original)
     
     # 2.  no-op - the exact text is already present
     elif exact_re.search(original):
-        display.debug("block already present")
+        module.debug("block already present")
         
         pass
         
     # 3. replace - the markers are present but the content is different
     elif different_re.search(original):
-        display.debug("block present but different, replacing")
+        module.debug("block present but different, replacing")
         
         result = different_re.sub(replacement, original)
     
-    # 4.  insert - the markers 
+    # 4.  insert - the markers
     else:
-        display.debug("block not present, inserting")
+        module.debug("block not present, inserting")
         
         lines = original.splitlines()
         
         n0 = None
         if insertre is not None:
-            match = insertre.search(original)    
+            match = insertre.search(original)
             for i, line in enumerate(lines):
                 if insertre.search(line):
                     n0 = i
